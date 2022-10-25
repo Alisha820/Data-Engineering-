@@ -1,0 +1,147 @@
+---
+title: "week-1-final"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+date: "2022-08-01"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Introduction:
+For this weeks assignment i will be using the WVS data to correlate between variables. We will be looking into marriage data where we will see how relationship status of a person could determine their happiness. 
+
+
+#Methods 
+We will start by loading all the required libraries, then loading out data. The structure of the data is important so it is also important to convert it to data.table. 
+```{r}
+# Required libraries
+library(dplyr)
+library(ggplot2)
+library("plyr")
+library(data.table)
+
+```
+
+```{r}
+if (!require(data.table)) {
+  require(data.table)
+}
+```
+
+```{r}
+# read in our .rdata file
+load("/Users/alisha/Downloads/WorldValues_Data.rdata")
+
+```
+
+```{r}
+wv3 = data.table(`WV3_Data_R_v_2015-04-18`)
+rm("WV3_Data_R_v_2015-04-18")
+```
+
+# Question V89 Are you married
+# Married
+# Living together as married
+# Divorced
+# Separated 
+#Widowed 
+#Single
+
+```{r}
+hist(wv3[,V89])
+hist(wv3[V89 > 0, V89])
+summary(wv3$V89)
+sortedTable = sort(table(wv3[, V89]), decreasing=T)
+View(sortedTable)
+```
+# Question V64. How satisfied are you with the financial situation of your household? If "1" means you are completely dissatisfied on this scale, and "10" means you are completely satisfied, where would you put your satisfaction with your household's financial situation?
+# 1   2   3   4   5   6   7   8   9   10
+
+```{r}
+hist(wv3[V64 > 0, V64])
+summary(wv3$V64)
+sortedTable = sort(table(wv3[, V64]), decreasing=T)
+View(sortedTable)
+
+```
+# Question V90: Do u have children? IF YES, how many
+#No child
+#1 child
+#2 children
+#3 children
+#4 children
+#5 children
+#6 children
+#7 children
+#8 or more children No answer
+
+```{r}
+hist(wv3[, V90])
+hist(wv3[V90 > 0, V90])
+summary(wv3$V90)
+sortedTable = sort(table(wv3[, V90]), decreasing=T)
+View(sortedTable)
+```
+
+# removing outliers
+#seeing summary and displaying the graph of the cleaned data
+
+```{r}
+wv3_cleaned <- wv3[V89 > 0 & V64 > 0 & V90 > 0]
+summary(wv3_cleaned$V89)
+summary(wv3_cleaned$V64)
+summary(wv3_cleaned$V90)
+
+hist(wv3_cleaned[V89 > 0, V64])
+hist(wv3_cleaned[V64 > 0, V90])
+hist(wv3_cleaned[V90 > 0, V89])
+
+```
+# Assigning a label to values
+```{r}
+wv3_cleaned$child <- as.factor(wv3_cleaned$V90)
+wv3_cleaned$mrg <- as.factor(wv3_cleaned$V89)
+wv3_cleaned$mrg <- plyr::revalue(wv3_cleaned$mrg,
+                                         c("1" = "Married",
+                                           "2" = "living together as married",
+                                           "3" = "Divorced",
+                                           "4" = "Separated",
+                                           "5" = "widowed",
+                                           "6" = "single"))
+```
+
+# Mrg:child
+```{r}
+ggplot(data=wv3_cleaned, aes(x=V90, fill=mrg)) + 
+  geom_histogram(aes(y=..density..), binwidth=0.5) +
+  facet_wrap(~mrg, nrow=2) + 
+  scale_x_continuous(breaks = 1:9, labels=c("1" = "No child", "2" = "1 child",
+                                         "3" = "2 children", "4" = "3 children", "5" = "4 child",                                          "6" = "5 child","7" = "6 children", "8" = "7children",
+                                         "9" = "more childeren or no answer")) +
+  scale_y_continuous("Density") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+```
+# mrg:happiness plot
+```{r}
+ggplot(data=wv3_cleaned, aes(x=V64, fill=mrg)) + 
+  geom_histogram(aes(y=..density..), binwidth=0.5) +
+  facet_wrap(~mrg, nrow=2) + 
+  scale_x_continuous(breaks = 1:10, labels=c("10" = "Very very happy", "9" = "very happy",
+                                            "8" = "Quite  happy", "7" = "happy", 
+                                            "6" = "not happy","5" = " disapointed",
+                                            "4" = "quit disapointed","3" = "very isapointed",
+                                            "2" = " very very disapointed","1" = "worst")) +
+  scale_y_continuous("Density") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(x = 'Taking all things together')
+       
+```
+#Conclusion/ Summary
+Looking at the plots here we could say that No child or 1 child is the most financially stable from all category. Married and 1 child seems to be the highest satisfied financially. Financially, divorced couple also seem to be the most financially stable depending on the number of child they have. 
+Looking at the happiness plot, we could see that widowed and divorced are the most happy. In the other hand all the other graphs looks very similar and all the categories have very close happiness and unhappiness sides. 
+
+Lookinhg at the both the graphs, we could say that Divorced couple with no child or 1 child is the happiest and most financially stable of all the other statues. 
+
