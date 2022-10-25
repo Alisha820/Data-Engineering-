@@ -1,0 +1,138 @@
+---
+title: "week-4-final"
+output:
+  pdf_document: default
+  word_document: default
+date: "2022-08-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Introduction
+One-way ANOVA is the process of comparing the independent groups in order to determine whether there is statistical evidence that the associated population means are significantly different. This test is also known as One-Factor ANOVA and the variables used are dependent and independent variable. For this week’s assignment we will be using the tyre.csv data. This data has four different tire brands and the mileage of the tire. 
+We will start by loading our libraries that is required. 
+
+#library and imports 
+```{r}
+library('data.table')
+library('stats')
+library('multcomp')
+library('ggpubr')
+library('magrittr')
+library('dplyr')
+library('car')
+```
+
+```{r}
+dt<- read.csv("/Users/alisha/Downloads/tyre.csv", header = TRUE, sep = ",")
+attach(dt)
+str(dt)
+```
+ Then converting it to data.frame which will make the data easier by putting it into a structure. 
+```{r}
+dt<- as.data.frame(dt)
+```
+#Prepping and checking the data 
+There is 2 columns in this data, Brand and Mileage, lets see if there is any NA value and drop those values so we get a better analysis ahead. 
+ 
+```{r}
+#Replace NaN & Inf with NA
+dt[is.na(dt) | dt=="Inf"] = NA
+#view updated data frame
+dt
+```
+The data looks good, here we could see that there are 4 different brands of tires, Apollo, Bridgestone, CEAT and Falken and different mileage that the tires gives.
+Now that we know what our data looks like, lets create a hypothesis. 
+
+H1- Apollo is the best brand with the maximum mileage of all tires.
+H0- Appollo is the worst brand with the maximum mileage of all tires. 
+Here the best and worst will be determined by the maximum mileage the tire brand will give. 
+
+#Converting to factor 
+Let check and factorize our categorical variable. 
+```{r}
+is.factor(dt$Brands)
+```
+
+```{r}
+brandsF = factor(dt$Brands)
+summary(dt)
+```
+```{r}
+cols <- c("Brands")
+dt %<>% mutate_each_(funs(factor(.)),cols)
+summary(dt)
+```
+This shows that our data is factorized, now we can move ahead to do some EDA nad cleaning. 
+
+#Plotting the Data 
+Lets create a boxplot and see how our data looks, with both out dependent and independent variable. 
+
+##Boxplot
+```{r}
+boxplot(Mileage~Brands, main="Fig.-1: Boxplot of Mileage of Tyres of different brands", col= colors(4))
+```
+Looking at the boxplot we could see that there is an outlier for CEAT brand but other brands does not look like they have any outliers.Falken is in the highest position comapared to all the other brands. So our hypothesis could be wrong about Apollo being the best tire. 
+
+#Histogram 
+We will create a histogram to see how our data would look like and its distribution. 
+```{r}
+hist(dt$Mileage,
+     prob=TRUE,
+     main = "Mileage of Brands",
+     xlab = "Number of interactions",
+     ylab = "Density",
+     col="Red")
+```
+This histogram does look somewhat normal. It does have more clutter in the middle and both ends are not too much but it does look a little bit normal. 
+
+#Plot Brand against the Mileage 
+```{r}
+plot.design(Brands ~ ., data = dt)
+```
+This is interesting, Apollo and Ceat happens to be in the same exact point as we can see they are overlap. Falken is in the top of the plot where as Bridgestone is in the bottom.
+
+#ggplot
+Before anova lets see a ggboxplot
+```{r}
+ggboxplot(dt, x = "Brands", y = "Mileage")
+```
+Alright this was expected, Falken is still on the highest point in the plot and Ceat has an outlier.
+
+#One way ANOVA
+We will start our One-way ANOVA, as we have some idea about the data.
+```{r}
+summary(aov(dt$Mileage ~ brandsF))
+```
+The F-value of 17.94 is the test statistic for the test. The p-value is of 2.78e-08 which is less than 0.001 which makes it highly significant. Here we could say that there is a highly significant difference between the mileages of cars that is connected to the brands of tire they have. 
+
+
+```{r anova}
+model1<- aov(Mileage~Brands)
+summary(model1)
+```
+
+Here the F value if 17.94 which means the data is highly significant as the corresponding p-value is much less than the level of significance. Thus we could reject the null hypothesis of equal mean valye of mileage run across all the tyre brands. This means that the average mileage for the four tyre brands are not equal, so now we will perform post Hoc analysis. 
+
+#Post Hoc Analysis 
+We will use TukeyHSD as it will give the accurate output. 
+#TukeyHSD 
+
+```{r tukey}
+TukeyHSD(model1)
+```
+We have a comparisions of means 95% family-wise confidence level 
+This shows the difference of mileage of all four brands where it has a diff, lwr, upr amd p adj column. This shows that all the pairs of mileage are statistically significantly different from the Tukey except for the pair CEAT-Apollo which is 0.99, which is the lowest of all. The highest mileage i.e Falken where as the lowest mileage brand Bridgeston has a difference in value of 5,844 mile.
+
+#Levene Test
+Plots could be deceiving so we will perform a Levene test of our model that will give us the most precise measurement of equal variance. 
+```{r}
+library(car)
+leveneTest(Mileage~Brands)
+```
+Here the p-value is ~0.55 which means that it is confirmed there is homogeneity of varience across the four brands.Here we cannot reject the null hypothesis of homogeneity of variances across the brands of tyre. 
+#Conclusion
+We could come to a conclusion that the hypothesis that we made did not come true as Apollo is the second best tire but not the best or the worst. Falken has higher mileage from the beginning(from our plots).So in this data, Falken is proved to be the best tire with the best mileage compared to other three tires in the list. 
+
+Reference DataScienceTutor. (2022, May 10). One way ANOVA example in R-quick guide: R-bloggers. R. Retrieved August 3, 2022, from <https://www.r-bloggers.com/2022/05/one-way-anova-example-in-r-quick-guide/>
