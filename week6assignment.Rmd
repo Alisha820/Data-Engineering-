@@ -1,0 +1,252 @@
+---
+title: "week-6-logistic regression"
+author: "Alisha Baral"
+date: "2022-08-17"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+#Introduction 
+This week we will be using the churn.csv dataset to analyse and predict whether the customer churns or not. Customer churn occurs when customers or subscribers stop doing business with a company or service. We will be using Logistic regression. 
+Our first step will be to import all the libraries that we will need in experiment. 
+# load libraries
+```{r}
+library(tidyverse) 
+library(MASS)
+library(car)
+library(e1071)
+library(caret)
+library(cowplot)
+library(caTools)
+library(pROC)
+library(data.table)
+library(dplyr)
+library(ggcorrplot)
+```
+
+```{r}
+set.seed(5)
+getwd()
+```
+
+#Methods
+#load data as data table
+
+```{r}
+setwd("~/Downloads")
+tel <- read.csv("churn.csv")
+dt<- as.data.table(tel)
+glimpse(dt)
+```
+This data contains 7043 rows(customer) and 21 columns(features). Here the churn column is going to be our target. 
+
+This data needs a lot of cleaning,we will drop all the Null value that we will not be using.
+```{r}
+dt <- dt[, c("customerID") := NULL]
+dt <- dt[complete.cases(dt),]
+```
+
+```{r}
+head(dt)
+summary(dt)
+```
+#Converting the column 'SeniorCitizen' from int to char
+
+```{r}
+#mapping 1, 0 to yes ,No
+dt$SeniorCitizen <- as.factor(plyr::mapvalues(dt$SeniorCitizen,
+                                        from =c("0","1"),
+                                        to=c("No", "Yes")))
+```
+
+Changing some wordings here, so it will be easier for us to read when we get the output. 
+```{r}
+ dt$MultipleLines <- as.factor(plyr::mapvalues(dt$MultipleLines,
+                                           from=c("No phone service"),
+                                           to=c("No")))
+```
+
+Then we will need to convert all the characters into factors. 
+
+```{r}
+dt <- dt %>% mutate_if(is.character, as.factor)
+str(dt)
+```
+
+```{r}
+dt <- as.data.table(dt)
+```
+
+Now lets, split our data into train and test set. Here we will split into 75% of train and 25 % to test data. 
+```{r}
+samp <- sample.split(dt$Churn, SplitRatio = 0.75)
+train <- subset(dt, samp == TRUE)
+test <- subset(dt, samp == FALSE)
+```
+ 
+Create a multi linear binomial logisitc regression
+```{r}
+model <- glm(Churn ~ ., data = train, family = "binomial")
+summary(model)
+```
+
+# Look at the model summary
+```{r}
+summary(model)
+```
+
+
+```{r}
+ model <- glm(Churn ~ .- MonthlyCharges, data = train, family = "binomial")
+summary(model)
+```
+
+```{r}
+ # Perform stepAIC to remove high p-values
+stepAIC(model, dirrection = 'both')
+```
+
+
+```{r}
+model <- glm(formula = Churn ~ SeniorCitizen + Dependents + tenure + PhoneService +
+               MultipleLines + InternetService + OnlineSecurity + OnlineBackup +
+               TechSupport + StreamingTV + StreamingMovies + Contract +
+               PaperlessBilling + PaymentMethod + TotalCharges, family = "binomial",
+data = train)
+```
+
+```{r}
+summary(model)
+```
+
+```{r}
+oldw <- getOption("warn")
+options(warn = -1)
+# predict on the train data
+trainpreds <- predict(model, type = 'response', train)
+# Round prediction values at 0.5 cutoff factor and change lables
+trainp <- factor(trainpreds >= 0.5, labels = c('No', 'Yes'))
+# Bulid a confusion matrix to see results
+trainCM <- confusionMatrix(train$Churn, trainp)
+trainCM
+```
+
+```{r}
+options(warn = oldw)
+```
+
+```{r}
+oldw <- getOption("warn")
+options(warn = -1)
+# predict on the test data
+testpreds <- predict(model, type = 'response', test)
+# Round prediction values at 0.5 cutoff factor and change lables
+testp <- factor(testpreds >= 0.5, labels = c('No', 'Yes'))
+# Bulid a confustion matrix to see results
+testCM <- confusionMatrix(test$Churn, testp)
+testCM
+```
+
+```{r}
+options(warn = oldw)
+```
+
+ # Create a Roc curve and and view ROC results for the Train data
+```{r}
+library(pROC)
+train_roc_curve <- roc(train$Churn, trainpreds)
+```
+
+```{r}
+train_roc_curve
+```
+
+```{r}
+plot(train_roc_curve)
+```
+
+```{r}
+ train_rocc_t <- coords(roc=train_roc_curve, x = 'best', best.method = 't', transpose = TRUE)
+train_rocc_t
+```
+
+```{r}
+train_rocc_y <- coords(roc=train_roc_curve, x = 'best', best.methos = 'y', transpose = TRUE)
+train_rocc_y
+```
+
+# Create a Roc curve and view results for the Test data
+```{r}
+test_roc_curve <- roc(test$Churn, testpreds)
+```
+
+```{r}
+test_roc_curve
+```
+
+```{r}
+plot(test_roc_curve)
+```
+```{r}
+ test_rocc_t <- coords(roc=test_roc_curve, x = 'best', best.method = 't', transpose = TRUE)
+test_rocc_t
+```
+
+```{r}
+ test_rocc_y <- coords(roc=test_roc_curve, x = 'best', best.method = 'y', transpose = TRUE)
+test_rocc_y
+```
+# predict on the train data using the ROC cuttoff
+# Round prediction values at 0.5 cutoff factor and change lables
+```{r}
+trainrocp <- factor(trainpreds >= train_rocc_t[1], labels = c('No', 'Yes'))
+```
+
+ # Buld a confustion matrix to see results
+```{r}
+trainROCCM <- confusionMatrix(train$Churn, trainrocp)
+trainROCCM
+```
+
+```{r}
+ # predict on the train data using the ROC cuttoff
+# Round prediction values at 0.5 cutoff factor and change lables
+trainrocp <- factor(trainpreds >= train_rocc_t[1], labels = c('No', 'Yes'))
+```
+# Buld a confustion matrix to see results
+
+```{r}
+trainROCCM <- confusionMatrix(train$Churn, trainrocp)
+trainROCCM
+```
+
+
+# predict on the test data using the ROC cuttoff
+# Round prediction values at threshold level and change lables
+```{r}
+testp <- factor(testpreds >= test_rocc_t[1], labels = c('No', 'Yes'))
+```
+
+# Build a confustion matrix to see results
+```{r}
+
+testROCCM <- confusionMatrix(test$Churn, testp)
+testROCCM
+```
+
+#View all the Confustion matricies
+```{r}
+trainCM
+```
+
+```{r}
+trainROCCM
+```
+Summary/ Conclusion 
+We started this assignment by loading the required libraries that we need to continu in our logistic regression process. Then we will load the churn.csv data and see how our data looks like. The data did needed a lot of cleaning as some columns were not important which we dropped and changed some wording so it is easier to understand. We also converted the columns into factors and spliltted the data into train test 75:25 ratio.
+The AIC score helped us remove all the high pvalues which we did not need as those values are considered as low significant. The step by step removal of the highest pvalue shows the improving AIC scores through the process we followed. 
+ROC curve for both train and test looks very similar, but the train curve looks very smooth and comparativly larger. The area under the curve for train in 0.85 whereas the area under the curve for test is 0.84, this means that train model is better. 
