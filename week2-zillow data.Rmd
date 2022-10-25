@@ -1,0 +1,199 @@
+---
+title: "Week2 Simple linear regression"
+output:
+  pdf_document: default
+  html_notebook: default
+  word_document: default
+---
+
+#Introduction 
+This week we will be performing simple linear regression to our data. This regression process is used to predict a quantative outcome y on the basis of one single variable x. We will be using the zillow data that is provided to us for our analysis.
+
+#Lets download some packages that are necessary First we need to install all the packages that we will need to complete this assignment, and then we will upload the data and convert it to a data table.
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(dplyr)
+library(caTools) 
+library(plotly)
+```
+#Methods
+#Lets get our data
+
+```{r}
+dt <- read.csv("/Users/alisha/Downloads/zillow_price.csv")
+df = data.table(`dt`)
+rm("dt")
+```
+
+Then we will check the data set with head, summary and str to know the number of rows, columns, and the missing value of the data.
+
+```{r}
+head(df)
+summary(df)
+```
+
+There is a total of 58 columns in this data. That is a lot of columns
+
+```{r}
+str(df)
+summary(df)
+```
+
+There is a lot of missing values in this data, so to get best results we will use columns that are numeric and don't have lots of missing values, we choose the following as our selected columns. 
+
+```{r}
+numeric_cols <- c('bathroomcnt',
+                  'bedroomcnt',
+                  'calculatedfinishedsquarefeet',
+                  'roomcnt',
+                  'yearbuilt',
+                  'taxvaluedollarcnt',
+                  'landtaxvaluedollarcnt',
+                  'price')
+```
+Above we created a numeric columns where we included some of the numeric value that might affect the price. 
+Lets take price and roocnt, the hypothesis that we will create is that roomcnt will affect the price of house. 
+H1 - Prices of house in the dataset is affected by the roomcnt of the house.
+# Simplify your dataset by only selecting the columns of your choosing dt[, numeric_cols, with = FALSE]
+
+```{r}
+df1=df[, numeric_cols, with = FALSE]
+df1
+```
+
+```{r}
+#We want to try to correlate home price with another variable.
+cor(df1$price, df1$roomcnt)
+```
+
+The correlate value now is NA so lets see what we could do for that by creating a boxplot and observing outliers.
+
+```{r}
+# Let's look to see if there are any outliers in the price column we need to remove
+# Create a boxplot of the price data
+boxplot(df$price)
+```
+We could see some outliers in this data as they are seperated from the rest of data on the top. It is better to remove those so get a better output for it. 
+# Remove the outliers. 
+```{r}
+quartiles <- quantile(df$price, probs=c(.25, .75), na.rm = TRUE)
+IQR <- IQR(df$price,na.rm = TRUE)
+ 
+Lower <- quartiles[1] - 1.5*IQR
+Upper <- quartiles[2] + 1.5*IQR 
+ 
+df2 <- subset(df, df$price > Lower & df$price < Upper)
+ 
+dim(df2)
+```
+We could see that there is a total pf 84174 outliers in this column, now we will make another boxplot without the outliers. 
+#Boxplot without outliers
+```{r}
+boxplot(df2$price)
+```
+The boxplot looks so much better that we removed our outliers. We could still see a clutter of points on the top of the plot, which means there are still data could be still considered as outliers. 
+
+```{r}
+# In our case, we have too many observations,lets see how many 
+df2%>% count("price")
+```
+
+# Use sample() to only sample a few hundred (maybe 500) points to plot.
+```{r}
+sample_rows <- sample(1:nrow(df1), 500)
+sample_rows
+sample <- df1[sample_rows, ]
+sample
+```
+
+```{r}
+#correlation
+cor(sample$price, sample$roomcnt)
+```
+The correlation between roomcnt and price is very low, this means that roomcnt does not impact the price of the houses efffectly. We will use another variable to see if that could be a better option. 
+Lets use landtaxvaluedollarcnt.
+```{r}
+cor(sample$price, sample$landtaxvaluedollarcnt)
+```
+That is a bid difference there, the cor value is 0.89 which is very high, we could now say that landtaxvaluedillarcnt does have a big impact on determining the price of the housed in the zillow.csv
+```{r}
+# bonus: try to make some nice-looking scatter plots with ggplot2
+library(ggplot2)
+df$bedroomcnt<-as.factor(df$bedroomcnt)
+df$bathroomcnt<-as.factor(df$bathroomcnt)
+
+plot<-ggplot(data=df[df$calculatedfinishedsquarefeet<2500&!is.na(df$calculatedfinishedsquarefeet),],aes(calculatedfinishedsquarefeet, y=price))
+plot+geom_point(aes(color=bedroomcnt))+ggtitle("price vs Sq.Ft")+ylab("Property Value in $")+scale_y_continuous(breaks=seq(0,10000000,5000000))
+```
+This plot has a majority green dots which means that the bedroomcnt is between 5-5. The starting point in the plot has lead value whereas more data is clutter-es mostklr.
+All our graphs looks little messy, so leran our data.
+```{r}
+# create a new data.table by dropping any missing values
+clean_df=na.omit(df1)
+head(clean_df)
+```
+
+```{r}
+#now we look is there any missing values in dataset
+colSums(is.na(clean_df))
+```
+
+```{r}
+# look up 'complete.cases()'
+complete.cases(clean_df)
+```
+
+```{r}
+# use dim() to see how many cases we dropped\
+dim(clean_df)
+```
+
+```{r}
+# get the pearson correlation between price and another variable using cor()
+cor(clean_df$price, clean_df$landtaxvaluedollarcnt)
+
+lm(price ~ landtaxvaluedollarcnt, data=clean_df)
+```
+
+```{r}
+# view the model summary 
+summary(clean_df)
+```
+
+```{r}
+#plot scatter plot
+library(ggplot2)
+ggplot(clean_df,aes(price ,landtaxvaluedollarcnt))+geom_point()
+```
+
+```{r}
+# add the regression line to the current plot using abline()
+x <- clean_df$price
+y <- clean_df$landtaxvaluedollarcnt
+# Plot with main and axis titles
+# Change point shape (pch = 19) and remove frame.
+plot(x, y, main = "Main title",
+     xlab = "X axis title", ylab = "Y axis title",
+     pch = 19, frame = FALSE)
+# Add regression line
+plot(x, y, main = "Main title",
+     xlab = "X axis title", ylab = "Y axis title",
+     pch = 19, frame = FALSE)
+abline(lm(x ~ y, data = clean_df), col = "blue")
+```
+
+```{r}
+# plot the fit diagnostics here
+par(mfrow=c(2,2)) # Change the panel layout to 2 x 2
+
+par(mfrow=c(1,1)) # Change back to 1 x 1
+
+```
+
+#Conclusion
+
+Then we will check the data set with head, summary and str to know the number of rows, columns, and the missing value of the data. Performing a boxplot was helpful to see all the outliers in the data that we selected. To get a better boxplot image, we took got rid of all the outliers. The difference was a better boxplot with #Observation I did a correlation 3 times in this experiment, at first the raw data gave us a NA result, which was expected as the data had too many NA values and it was not cleaned. The second one is after cleaning and removing the outliers, which again gave us a negative low value of -0.09368026 with the correlation price and roomcnt. The negative value was not what we were looking for so I switched to a different variable(landtaxvaluedollarcnt) which gave a good correlation of 0.899414
+Accuracy From this observation we could come to a conclusion that a cleaned data is more accurate than and gives better output.
+About distribution The diagonol line shows that the data is not normally distributed. As most of the data does not fall along the straight line.
