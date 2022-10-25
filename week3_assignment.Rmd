@@ -1,0 +1,142 @@
+---
+title: "week3-assignement"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+date: '2022-07-20'
+---
+# Pick a dataset of your choosing that is appropriate for MLR. (Should be numerical and not have a lot of missing values). Make sure to comment in your report where you downloaded the dataset.
+
+#Introduction
+This week we will be performing multiple linear regression is a technique that uses several explanatory variables to predict the outcome of a response variable. We will be using Medical Cost Personal datasets to find the best multilinear regression model of the dataset. We will start by downloading some libraries that we will need and then load the insurance.csv data.
+I will be using Medical Cost Personal Datasets. 
+https://www.kaggle.com/datasets/mirichoi0218/insurance
+
+# Objective: Find the best multilinear regression model of the dataset of your choosing.
+#Methods
+Lets start by installing all the packages that we might need.
+#Library and imports
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+
+library(tidyverse)
+library(tidyr)
+library(ggmap)
+
+
+library(set)
+library(corrplot)
+library(car)
+```
+
+#Then we will load our data which is the insurance data 
+```{r}
+dt <- read.csv("/Users/alisha/Downloads/insurance.csv")
+dt <- as.data.frame(dt)
+```
+
+### Exploratory ### 
+# Look at summary to see if there are any NAs or characters in the dataset. 
+  # If there are NAs and/or characters remove them.
+```{r}
+dim(dt)
+str(dt)
+summary(dt) 
+```
+
+```{r}
+head(dt)
+```
+The predictive variables in this data are age, sex, bmi, children, region and the target variable is charges. Looking at the data, it does not seem like there are any NA so we will continue further to perform EDA and visualize the data better. 
+
+##Plotting the Data 
+Lets plot our data and see how our data looks like overall. 
+
+#Box plot and histogram of the dependent variable
+```{r}
+hist(dt$charges)
+boxplot(dt$charges)
+```
+Here the histogram has maximum frequency in the beginning of the plot and later it drops down lower value. On the other side the boxplot has multiple outliers, so removing the outlier will help us get better output. 
+#Lets remove the outliers on charges and see how many outliers we dropped 
+```{r}
+charges_no <- dt$charges[!dt$charges %in% boxplot.stats(dt$charges)$out]
+
+length(dt$charges) - length(charges_no)  
+```
+We removed a total of 139 outliers, which is not a lot but still could make a big difference. 
+```{r}
+boxplot(dt$charges)
+boxplot(charges_no)
+```
+After removing a total of 139 outlier the boxplot does look a little spread compared to the first one with outliers. After this we will drop all the non-numeric values so we could create a correlation plot of the numeric values only. 
+
+#Heatplot
+```{r}
+dt.cor <- cor(dt[,c(1,3,7)])
+corrplot(dt.cor)
+```
+Here we could see that age does play a role in determining the insurance premium. BMI lies half above the 0 line which mean that BMI has somewhat positive relation. 
+
+Our first model will have all the data, lets see how our output looks like with all the columns as our first model.
+```{r}
+multiple_lm1 <- lm(charges ~ age + sex + bmi + children + smoker + region,data = dt)
+summary(multiple_lm1)
+plot(multiple_lm1)
+```
+Residuals vs Fitted has 3 main clumps in it. This indicates that this plot values are not correlated and there is a linear relationship between the predictor variables and target.
+Normal Q-Q plot shows that the points falla along the line in the center area but curves off in the beginning of the plot and towards the end of the plot. This mean that the data does not follow a normal distribution. 
+Scale-location plot has two main clutters, one is bigger and one is smaller with some empty space separating them. This plot in no way shows that it has a equal variance. 
+Residual vs Leverage has many scattered points and also has some clutters. This plot helps to find influential points that distort our model. In this case, the cook's distance is not very visible which says that, there is not any influential points that have distorted our model. 
+Lets drop some non-numeric values so we could create a correlation plot of the numeric values only. 
+```{r}
+drop <- c("sex", "region")
+df = dt[,!(names(dt) %in% drop)]
+```
+ 
+Now we will create our second model after dropping, the numeric values that does not seem to affect our model that much. 
+```{r}
+multiple_lm2 <- lm(charges ~ bmi + age + smoker + children,data = dt)
+summary(multiple_lm2)
+```
+
+# 3. A MLR model that has a summary, residual plots, and a VIF analysis
+```{r}
+multiple_lm2 <- lm(charges ~ age  + bmi + children + smoker,data = dt)
+summary(multiple_lm2)
+plot(multiple_lm2)
+```
+This result is very similar to multiple_lm1 so now we will just check correlation between them and see which model is better in the end. 
+
+#Lets look at the correlation between each predictor.
+```{r}
+cor(dt$charges,dt$children)
+cor(dt$charges,dt$bmi)
+cor(dt$charges,dt$age)
+```
+Here the highest correlation is between children and charges so we could say that depending on the number of children in a family, the amount of insurance is going to be higher.
+We could look further into other column values. Smoking might affect charges more as people who smoke are prone to other diseases and conditions. Lets check the correlation between charges and smoker. Since the smoke data is not numeric, lets convert it to numeric and see the correlation. 
+
+```{r}
+library(plyr)
+dt$smoker <- revalue(dt$smoker, c("yes"=1))
+dt$smoker <- revalue(dt$smoker, c("no"=0))
+dt$smoker <- as.numeric(dt$smoker)
+cor(dt$charges,dt$smoker)
+```
+This shows that, smoking has the highest predictive power highly correlated variable with insurance expenses. So our assumption was right about smokers being charged more for insurance. 
+
+# 8. AIC scores of all models built
+```{r}
+library("MASS")
+AIC(multiple_lm1)
+AIC(multiple_lm2)
+```
+The AIC scores of the two models are very close but multiple_lm2 has lower which mean lm2 is the better model compared to lm1. 
+
+Conclusion 
+
+Looking at the overall solution of this data, the model1(Multiple_lm1) and model2(multiple_lm2) that we created did not differ much in the outputs it gave. All the values were very close and so was our AIC values. The final AIC value shows that model2 is definitely better than model1. This result is also because we did remove "sex", and "region" which gave a better output. Children and smoker definitely have the highest correlation in our data. This means that they have higher influence in the price of insurance. 
