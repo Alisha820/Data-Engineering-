@@ -1,0 +1,121 @@
+---
+title: "week-7-assignment"
+output:
+  pdf_document: default
+  html_document: default
+date: "2022-08-23"
+---
+#Introduction 
+This week we will be using non-parametrics test methods. These methods are experiments that do not require the underlying populatoon for assumptions. It does not rely on any data referring to any particular parametric group of probability distributions. They are also known as distribution free tests as they do not have any underlying population. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We will start our assignment by loading some libraries that are required. We will then load our data. The data we will be using is the placebo_new_drug.csv data. 
+```{r}
+library(data.table)
+library(BSDA)
+library(nortest)
+```
+```{r}
+setwd("/Users/alisha/Downloads")
+aut <- fread('placebo_new_drug.csv')
+View(aut)
+```
+
+#Median 
+```{r}
+median(aut$Placebo)
+median(aut$New.Drug)
+```
+# what we actually want to see is a reduction in the repetitive behaviors, so we should do a one-sided test
+# The first group must be greater than the second group
+```{r}
+?SIGN.test
+SIGN.test(x = aut$Placebo, y = aut$New.Drug, alternative = 'greater')
+```
+p-value here is 0.1875 so we fail to reject the null hypothesis where we could state that the Medians are not significantly different. 
+
+# one-sided -- We want the placebo to be greater than the drug
+```{r}
+wilcox.test(aut$Placebo, aut$New.Drug, alternative = 'greater')
+```
+
+p-value = 0.02957 so we will reject the null hypothesis as the value of p is less than 0.05. 
+
+# Kruskal-Wallis
+# Amount of albumin in the blood with different amount of protein in diet
+# Albumin can be used to gauge if enough protein is in the diet
+```{r}
+alb <- fread('/Users/alisha/Downloads/albumin.csv')
+View(alb)
+str(alb)
+alb[, pct.protein.5:=as.numeric(pct.protein.5)]
+str(alb)
+```
+
+```{r}
+kruskal.test(alb)
+```
+```{r}
+# complicated reshaping to work with agricolae
+alb$temp <- 0 # temp column to allow reshape
+# convert column names into row values
+alb <- melt(alb, id.vars = 4, variable.name = 'protein', value.name = 'albumin')
+alb <- alb[complete.cases(alb), ] # drop NAs
+alb$temp <- NULL  # drop temp column that allowed for reshape
+alb
+str(alb)
+library(agricolae)
+krus <- kruskal(alb$albumin, trt = alb$protein, console = T)
+# Protein 15 is significantly different from 10 and 5.
+plot(krus)
+```
+```{r}
+# Test is distributions differ
+
+# Kolmogorov-Smirnov
+ks.test(aut$Placebo, aut$New.Drug)
+# confusingly, 'greater' for ks.test means the second set of data's median is greater than the first one
+# so if we want the new drug less than the placebo, it's written like this:
+
+ks.test(aut$Placebo, aut$New.Drug, alternative = 'greater')
+# We fail to reject the null hypothesis and state that the distributions are NOT significantly different
+
+```
+
+
+# Test if variables are correlated
+
+# spearman's
+```{r}
+cor(aut[, c('Placebo', 'New.Drug'), with=F], method = 'spearman')
+library(pspearman)
+```
+# rho is the spearman coefficient.  the p-value is used to check if there is a strong 
+# monotonic relationship between the two variables
+```{r}
+spearman.test(aut$Placebo, aut$New.Drug)
+```
+
+# We fail to reject the null hypothesis and there is NO relationship between variables.
+
+#Kendall's Tau 
+```{r}
+cor(aut[, c('Placebo', 'New.Drug'), with=F], method = 'kendall')
+kendall(aut$Placebo, aut$New.Drug)
+```
+# We fail to reject the null hypothesis and there is NO relationship between variables.
+
+#Summary/Conclusion
+
+Median- We first calculated the median of both the categories. The median of Placebo was 6 whereas the median of New.drug was 3 which is half of Placebo. This could mean that placebo has higher value compared to New.drug
+
+Then we move on to Sign test. It compares the size of two groups. While comparing the size of the two groups we have(Placebo and New.Drug). The p-value of the difference is 0.18 so we could say that we fail to reject the null hypothesiswhere we could state that the Medians are not significantly different. 
+For Wilcox.text our p-value is 0.029, we will reject the null hypothesis as the value is less than 0.05.
+Kruskal-Wallis- Like our demo data, we will be using the albumin.csv. The p-value for this is 0.022 which is less than 0.05 so we will reject the null hypothesis. 
+
+Kolmogorov-Smirnoy fails to reject the null hypothesis 
+Then we test the variables if they are all correlated or not, but looks like there is no relation between the two variables we have. 
+Performing Kendall’s Tau we could conclude that we fail to reject the null hypothesis and there is NO relationship between variables 
